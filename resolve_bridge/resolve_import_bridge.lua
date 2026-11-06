@@ -63,6 +63,24 @@ local function handle(req)
     if req.action == "ping" then
         return true, "Bridge is running", "", "", ""
     end
+    if req.action == "delete_gaps" then
+        local project_manager = resolve:GetProjectManager()
+        local project = project_manager and project_manager:GetCurrentProject()
+        if not project then return false, "No project is open", "", "", "" end
+        local timeline = project:GetCurrentTimeline()
+        if not timeline then return false, "No active timeline", project:GetName(), "", "" end
+        local call_ok, deleted = pcall(function() return timeline:DeleteGaps() end)
+        if not call_ok then
+            return false, "Resolve could not close timeline gaps: " .. tostring(deleted),
+                project:GetName(), timeline:GetName(), ""
+        end
+        if deleted == false then
+            return false, "Resolve did not close the timeline gaps",
+                project:GetName(), timeline:GetName(), ""
+        end
+        return true, "All gaps in the active timeline were closed",
+            project:GetName(), timeline:GetName(), ""
+    end
     if req.action == "analyze_timeline" then
         local project_manager = resolve:GetProjectManager()
         local project = project_manager and project_manager:GetCurrentProject()

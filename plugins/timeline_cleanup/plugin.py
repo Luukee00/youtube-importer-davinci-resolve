@@ -45,6 +45,12 @@ class TimelineCleanupWindow(QMainWindow):
         toolbar.addWidget(self.scan_button)
         layout.addLayout(toolbar)
 
+        self.close_gaps_button = QPushButton("Chiudi tutti gli spazi vuoti")
+        self.close_gaps_button.setObjectName("danger")
+        self.close_gaps_button.setEnabled(False)
+        self.close_gaps_button.clicked.connect(self.close_gaps)
+        layout.addWidget(self.close_gaps_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
         self.summary = QLabel("Nessuna analisi eseguita.")
         self.summary.setObjectName("summary")
         layout.addWidget(self.summary)
@@ -71,6 +77,7 @@ class TimelineCleanupWindow(QMainWindow):
             QLabel { background:transparent; }
             QPushButton { background:#30343b; border:1px solid #4a505b; border-radius:5px; padding:9px 14px; }
             QPushButton#primary { background:#c69736; color:#17191d; font-weight:700; border:0; }
+            QPushButton#danger { background:#8f493e; color:#fff; font-weight:700; border:0; }
             QPushButton:disabled { color:#717783; }
             QTableWidget { background:#202329; alternate-background-color:#252930; gridline-color:#383d46; border:1px solid #383d46; }
             QHeaderView::section { background:#30343b; color:#d3a94e; padding:7px; border:0; font-weight:700; }
@@ -86,6 +93,8 @@ class TimelineCleanupWindow(QMainWindow):
             data = json.loads(response.get("message", "{}"))
             findings = data.get("findings", [])
             self._show_results(findings)
+            self.gap_count = sum(1 for item in findings if item.get("category") == "Spazio vuoto")
+            self.close_gaps_button.setEnabled(self.gap_count > 0)
             project = response.get("project") or "Progetto"
             timeline = response.get("timeline") or "Timeline attiva"
             self.timeline_label.setText(f"{project}  ·  {timeline}")
@@ -93,6 +102,37 @@ class TimelineCleanupWindow(QMainWindow):
             QMessageBox.warning(self, "Analisi non riuscita", str(exc))
             self.timeline_label.setText("Controlla che Resolve sia aperto e che il bridge sia avviato.")
         finally:
+            self.scan_button.setEnabled(True)
+
+    def close_gaps(self):
+        count = getattr(self, "gap_count", 0)
+        if count <= 0:
+            return
+        answer = QMessageBox.warning(
+            self,
+            "Conferma chiusura spazi",
+            f"Resolve chiuderà tutti gli spazi vuoti della timeline attiva, non solo i {count} rilevati.\n\n"
+            "Le clip successive verranno spostate a sinistra. Anche gli spazi lasciati intenzionalmente "
+            "verranno rimossi e l’operazione può modificare la sincronizzazione tra tracce.\n\n"
+            "Vuoi continuare?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.close_gaps_button.setEnabled(False)
+        self.scan_button.setEnabled(False)
+        try:
+            response = send_resolve_request("delete_gaps")
+            if not response.get("ok"):
+                raise RuntimeError(response.get("message") or "Resolve non ha chiuso gli spazi.")
+            QMessageBox.information(
+                self, "Timeline aggiornata",
+                f"Gli spazi vuoti sono stati chiusi in {response.get('timeline') or 'la timeline attiva'}."
+            )
+            self.analyze()
+        except Exception as exc:
+            QMessageBox.critical(self, "Modifica non riuscita", str(exc))
             self.scan_button.setEnabled(True)
 
     def _show_results(self, findings):

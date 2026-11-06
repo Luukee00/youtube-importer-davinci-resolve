@@ -114,7 +114,7 @@ requirements.txt                     Dipendenze Python dell’app e dei plug-in 
 plugins/timeline_cleanup/            Plug-in Pulizia della timeline
 ```
 
-Il plug-in **Pulizia della timeline** analizza gli spazi vuoti tra clip consecutive, le tracce senza clip e i file sorgente il cui percorso locale non viene trovato. Legge le posizioni delle clip e le liste delle tracce dalla scripting API di Resolve; i risultati dipendono dalle informazioni che Resolve restituisce per la timeline. La scansione è di sola lettura e non ripara automaticamente i problemi.
+Il plug-in **Pulizia della timeline** analizza gli spazi vuoti tra clip consecutive, le tracce senza clip e i file sorgente il cui percorso locale non viene trovato. Il pulsante **Chiudi tutti gli spazi vuoti** usa il comando Resolve `Timeline.DeleteGaps()` dopo aver chiesto conferma. Resolve chiude tutti i vuoti della timeline attiva, compresi quelli intenzionali; controlla prima che non ci siano pause che vuoi conservare. Dopo l’operazione il plug-in ripete l’analisi.
 
 ## Risoluzione problemi
 
