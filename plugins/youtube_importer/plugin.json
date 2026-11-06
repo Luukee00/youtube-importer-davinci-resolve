@@ -1,0 +1,7 @@
+{
+  "id": "youtube_importer",
+  "name": "YouTube Importer",
+  "version": "1.0.0",
+  "description": "Scarica video o audio da YouTube e, se vuoi, importali nel progetto Resolve aperto.",
+  "entrypoint": "plugin.py"
+}
