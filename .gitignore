@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 build/
 dist/
-*.spec
 *.log
 .env
 .pytest_cache/

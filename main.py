@@ -19,8 +19,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
-ROOT = Path(__file__).resolve().parent
-from prototype.client import send as send_resolve_request
+from resolve_bridge.client import send as send_resolve_request
 
 
 class WorkerSignals(QObject):

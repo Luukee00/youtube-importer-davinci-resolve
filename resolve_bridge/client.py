@@ -1,7 +1,6 @@
-"""Small Windows CLI client for the Resolve Lua proof of concept."""
+"""Local IPC client used by the Windows app to talk to DaVinci Resolve."""
 from __future__ import annotations
 
-import argparse
 import json
 import os
 from pathlib import Path
@@ -9,18 +8,10 @@ import re
 import tempfile
 import time
 import uuid
-from datetime import datetime, timezone
 
 PREFS_DIR = Path(os.environ.get("APPDATA", "")) / "Blackmagic Design/DaVinci Resolve/Support/Fusion/Profiles"
 STATE_DIR = Path.home() / ".ytresolve-importer"
 PREFS_TABLE = "RossiYouTubeImporter"
-LOG_FILE = STATE_DIR / "bridge_debug.log"
-
-
-def log_event(event: str, **details: object) -> None:
-    record = {"time_utc": datetime.now(timezone.utc).isoformat(), "event": event, **details}
-    with LOG_FILE.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def lua_string(value: str) -> str:
@@ -46,7 +37,7 @@ def read_importer_prefs() -> dict[str, str]:
         return {}
     block = blocks[-1]
     fields: dict[str, str] = {}
-    for key in ("Response", "Status", "Session"):
+    for key in ("Response", "Status"):
         matches = re.findall(rf'(?m)^[ \t]*{key}\s*=\s*"([^"\r\n]*)"', block)
         if matches:
             fields[key] = matches[-1]
@@ -78,7 +69,6 @@ def send(action: str, media_path: Path | None = None, timeout: float = 20) -> di
     if media_path is not None:
         fields.append(f"path={lua_string(str(media_path.resolve()))}")
     payload = "return {" + ",".join(fields) + "}\n"
-    log_event("request", id=request_id, action=action, path=str(media_path.resolve()) if media_path else None)
     destination = STATE_DIR / "request.lua"
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="\n", dir=STATE_DIR,
                                      prefix="request-", suffix=".tmp", delete=False) as stream:
@@ -98,33 +88,8 @@ def send(action: str, media_path: Path | None = None, timeout: float = 20) -> di
     while time.monotonic() < deadline:
         response = read_response()
         if response and response[0] == request_id:
-            log_event("response", **response[1])
             return response[1]
         time.sleep(0.1)
     status = read_status()
-    log_event("timeout", id=request_id, status=status)
     detail = f" Bridge status: {status}." if status else " No startup status was saved."
     raise TimeoutError("No reply from Resolve." + detail + " Restart Resolve, run the bridge once, then retry.")
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="DaVinci Resolve Free Lua bridge proof of concept")
-    parser.add_argument("--ping", action="store_true", help="check the in-Resolve bridge")
-    parser.add_argument("--file", type=Path, help="local media file to import and append")
-    parser.add_argument("--timeout", type=float, default=20)
-    args = parser.parse_args()
-    if not args.ping and args.file is None:
-        parser.error("choose --ping or --file")
-    if args.file is not None and not args.file.is_file():
-        parser.error(f"media file does not exist: {args.file}")
-    try:
-        result = send("ping" if args.ping else "import_append", args.file, args.timeout)
-    except Exception as exc:
-        print(f"Bridge error: {exc}")
-        return 2
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0 if result.get("ok") else 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

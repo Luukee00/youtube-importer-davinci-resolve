@@ -107,37 +107,12 @@ local function handle(req)
     if not timeline then return false, "No active timeline; file is in the Media Pool only", project:GetName(), "", media:GetName() end
 
     project:SetCurrentTimeline(timeline)
-    local page_ok, page_result = pcall(function() return resolve:OpenPage("edit") end)
-    print("YTDIAG active timeline=" .. tostring(timeline:GetName()) ..
-        " page=" .. tostring(resolve:GetCurrentPage()) ..
-        " setTimeline=" .. tostring(project:SetCurrentTimeline(timeline)) ..
-        " openEdit=" .. tostring(page_ok and page_result))
-
-    local properties = {}
-    pcall(function() properties = media:GetClipProperty() or {} end)
-    print("YTDIAG media name=" .. tostring(media:GetName()) ..
-        " type=" .. tostring(properties["Type"] or properties["File Type"] or "unknown") ..
-        " videoCodec=" .. tostring(properties["Video Codec"] or "unknown") ..
-        " audioCodec=" .. tostring(properties["Audio Codec"] or "unknown"))
-    local before_video = -1
-    local before_audio = -1
-    pcall(function() before_video = timeline:GetTrackCount("video") end)
-    pcall(function() before_audio = timeline:GetTrackCount("audio") end)
+    pcall(function() return resolve:OpenPage("edit") end)
 
     -- AppendToTimeline places the clip after existing timeline content, avoiding overwrite.
     local appended = media_pool:AppendToTimeline(media)
-    local after_video = -1
-    local after_audio = -1
-    pcall(function() after_video = timeline:GetTrackCount("video") end)
-    pcall(function() after_audio = timeline:GetTrackCount("audio") end)
-    local append_count = type(appended) == "table" and #appended or -1
-    print("YTDIAG append type=" .. type(appended) .. " count=" .. tostring(append_count) ..
-        " videoTracks=" .. tostring(before_video) .. "->" .. tostring(after_video) ..
-        " audioTracks=" .. tostring(before_audio) .. "->" .. tostring(after_audio))
     if type(appended) ~= "table" or not appended[1] then
-        return false, "Media Pool import succeeded, but timeline insertion failed. Diagnostics: AppendToTimeline type=" ..
-            type(appended) .. ", returned=" .. tostring(append_count) .. ", tracks video=" .. tostring(before_video) ..
-            "->" .. tostring(after_video) .. " audio=" .. tostring(before_audio) .. "->" .. tostring(after_audio),
+        return false, "Media Pool import succeeded, but timeline insertion failed",
             project:GetName(), timeline:GetName(), media:GetName()
     end
     return true, "Imported into the Media Pool and appended to the active timeline",
@@ -172,7 +147,6 @@ while true do
         local req = read_request()
         if req and type(req) == "table" and type(req.id) == "string" and req.id ~= last_id then
             last_id = req.id
-            print("YouTube Importer bridge received request: " .. tostring(req.action))
             local call_ok, succeeded, message, project_name, timeline_name, media_name = pcall(handle, req)
             if not call_ok then
                 reply(req.id, false, "Resolve Lua error: " .. tostring(succeeded), resolve_version(), "", "", "")

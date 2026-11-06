@@ -1,9 +1,8 @@
 @echo off
 setlocal
-set "SOURCE=%~dp0prototype\resolve_import_bridge.lua"
-if not exist "%SOURCE%" set "SOURCE=%~dp0resolve_import_bridge.lua"
+set "SOURCE=%~dp0resolve_bridge\resolve_import_bridge.lua"
 if not exist "%SOURCE%" (
-  echo Non trovo resolve_import_bridge.lua accanto allo script.
+  echo Non trovo resolve_bridge\resolve_import_bridge.lua nella cartella del progetto.
   pause
   exit /b 1
 )
