@@ -1,0 +1,7 @@
+{
+  "id": "timeline_cleanup",
+  "name": "Pulizia della timeline",
+  "version": "0.1.0",
+  "description": "Analizza la timeline attiva per trovare spazi vuoti, file mancanti e tracce senza clip. Mostra suggerimenti senza modificare il progetto.",
+  "entrypoint": "plugin.py"
+}

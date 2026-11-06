@@ -111,7 +111,10 @@ resolve_bridge/resolve_import_bridge.lua  Bridge Lua da avviare in Resolve
 Avvia RossiAPP.bat                   Crea l’ambiente e avvia il pannello
 Installa bridge Resolve.bat          Installa lo script Lua nel profilo utente
 requirements.txt                     Dipendenze Python dell’app e dei plug-in inclusi
+plugins/timeline_cleanup/            Plug-in Pulizia della timeline
 ```
+
+Il plug-in **Pulizia della timeline** analizza gli spazi vuoti tra clip consecutive, le tracce senza clip e i file sorgente il cui percorso locale non viene trovato. Legge le posizioni delle clip e le liste delle tracce dalla scripting API di Resolve; i risultati dipendono dalle informazioni che Resolve restituisce per la timeline. La scansione è di sola lettura e non ripara automaticamente i problemi.
 
 ## Risoluzione problemi
 

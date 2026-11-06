@@ -1,7 +1,7 @@
--- Rossi YouTube Importer: minimal DaVinci Resolve in-process bridge.
+-- RossiAPP: local DaVinci Resolve in-process bridge.
 -- Start from Workspace > Scripts > Utility > YouTubeImporterBridge once per Resolve session.
--- This script intentionally supports only a ping and import/append request. It never executes
--- arbitrary Lua supplied by the desktop client.
+-- This script supports ping, read-only timeline analysis, and import/append requests. It never
+-- executes arbitrary Lua supplied by the desktop client.
 
 local bridge_version = "0.1.7"
 local state_dir = os.getenv("USERPROFILE") .. "\\.ytresolve-importer"
@@ -62,6 +62,61 @@ local function handle(req)
     end
     if req.action == "ping" then
         return true, "Bridge is running", "", "", ""
+    end
+    if req.action == "analyze_timeline" then
+        local project_manager = resolve:GetProjectManager()
+        local project = project_manager and project_manager:GetCurrentProject()
+        if not project then return false, "No project is open", "", "", "" end
+        local timeline = project:GetCurrentTimeline()
+        if not timeline then return false, "No active timeline", project:GetName(), "", "" end
+        local findings = {}
+        local function add(severity, category, track, detail)
+            findings[#findings + 1] = string.format(
+                '{"severity":"%s","category":"%s","track":"%s","detail":"%s"}',
+                safe_string(severity), safe_string(category), safe_string(track), safe_string(detail))
+        end
+        local function scan_tracks(track_type, label)
+            local count = timeline:GetTrackCount(track_type) or 0
+            for track_index = 1, count do
+                local track_name = label .. " " .. tostring(track_index)
+                pcall(function()
+                    local named = timeline:GetTrackName(track_type, track_index)
+                    if named and named ~= "" then track_name = tostring(named) end
+                end)
+                local items = timeline:GetItemListInTrack(track_type, track_index) or {}
+                if #items == 0 then
+                    add("info", "Traccia vuota", track_name, "La traccia non contiene clip.")
+                else
+                    table.sort(items, function(a, b) return (a:GetStart() or 0) < (b:GetStart() or 0) end)
+                    local previous_end = nil
+                    for _, item in ipairs(items) do
+                        local start_frame = tonumber(item:GetStart())
+                        local end_frame = tonumber(item:GetEnd())
+                        if start_frame and previous_end and start_frame > previous_end then
+                            local gap = start_frame - previous_end
+                            if gap > 1 then
+                                add("warning", "Spazio vuoto", track_name,
+                                    tostring(gap) .. " fotogrammi tra clip consecutive.")
+                            end
+                        end
+                        if end_frame then previous_end = math.max(previous_end or end_frame, end_frame) end
+                        local ok_media, media = pcall(function() return item:GetMediaPoolItem() end)
+                        if ok_media and media then
+                            local ok_path, file_path = pcall(function() return media:GetClipProperty("File Path") end)
+                            if ok_path and type(file_path) == "string" and file_path ~= ""
+                                and bmd and bmd.fileexists and not bmd.fileexists(file_path) then
+                                add("error", "File mancante", track_name,
+                                    tostring(item:GetName()) .. " — " .. file_path)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        scan_tracks("video", "Video")
+        scan_tracks("audio", "Audio")
+        scan_tracks("subtitle", "Sottotitoli")
+        return true, '{"findings":[' .. table.concat(findings, ",") .. ']}', project:GetName(), timeline:GetName(), ""
     end
     if req.action ~= "import_append" and req.action ~= "import_pool" then
         return false, "Unsupported action"
